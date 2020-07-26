@@ -1,1 +1,1 @@
-python\python.exe start_gui.py
+python\Scripts\python.exe start_gui.py

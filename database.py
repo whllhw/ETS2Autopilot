@@ -37,7 +37,7 @@ class Database(object):
                                     FOREIGN KEY(sequence) REFERENCES sequence(id) ON DELETE CASCADE 
                                 );""")
 
-        self.conn = sqlite3.connect('data.sqlite')
+        self.conn = sqlite3.connect('data.sqlite', check_same_thread=False)
         self.batch = batch
 
         try:

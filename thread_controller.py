@@ -1,5 +1,6 @@
 import threading
-import pygame
+import time
+
 import pyvjoy
 from database import Settings
 
@@ -23,23 +24,18 @@ class ControllerThread(threading.Thread):
             ControllerThread.running = False
 
     def run(self):
-        if pygame.joystick.get_init():
-            pygame.joystick.quit()
-        pygame.init()
-        pygame.joystick.init()
-        joystick = pygame.joystick.Joystick(self.controller)
-        joystick.init()
         vjoy = pyvjoy.VJoyDevice(self.vjoy)
         vjoy.reset()
-
+        vjoy.set_axis(pyvjoy.HID_USAGE_X, 0x4000)
         while ControllerThread.running:
-            pygame.event.pump()
+            time.sleep(0.15)
             if not ControllerThread.autopilot:
-                angle = round((joystick.get_axis(self.axis) + 1) * 32768 / 2)
+                pass
+                # angle = round((joystick.get_axis(self.axis) + 1) * 32768 / 2)
             else:
                 angle = ControllerThread.angle
-
-            vjoy.set_axis(pyvjoy.HID_USAGE_Y, angle)
+                vjoy.set_axis(pyvjoy.HID_USAGE_X, angle)
+        vjoy.set_axis(pyvjoy.HID_USAGE_X, 0x4000)
 
     def is_running(self):
         return self.running

@@ -1,13 +1,15 @@
+# coding:utf-8
 import threading
-import pygame
+import time
+
 import numpy as np
 from PIL import ImageGrab
 import cv2
 from database import Settings, Data
-import speed_detection
 import functions
-import time
 import os
+from ets2_telemetry import get_steering_throttle_speed
+import keyboard
 
 
 class RecordingThread(threading.Thread):
@@ -22,82 +24,44 @@ class RecordingThread(threading.Thread):
         self.statusbar = statusbar
         self.image_front = image_front
         self.running = True
-        self.joystick = pygame.joystick.Joystick(Settings().get_value(Settings.CONTROLLER))
         self.fill_sequence_list = fill_sequence_list
 
+        self.recording = False
+        self.sequence_id = None
         if not os.path.exists("captured/"):
             os.mkdir("captured")
 
     def stop(self):
         with RecordingThread.lock:
             RecordingThread.running = False
+            self.fill_sequence_list()
+
+    def record_callback(self,d):
+        self.recording = not self.recording
+        if self.recording:  # started recording
+            self.sequence_id = d.add_sequence()
+        else:  # stopped recording
+            self.fill_sequence_list()
 
     def run(self):
         s = Settings()
         d = Data(batch=True)
 
         img_id = d.get_next_fileid()
-        recording = False
-        recording_button_prev = 0
+        self.recording = False
 
         maneuver = 0  # 0 - normal, 1 - indicator left, 2 - indicator right
-        indicator_left = False
-        indicator_left_prev = 0
-        indicator_right = False
-        indicator_right_prev = 0
+        last_record = functions.current_milli_time()
 
-        last_record = 0
-
+        keyboard.add_hotkey('shift+w', self.record_callback, args=[d])
         while RecordingThread.running:
-            pygame.event.pump()
-            recording_button_act = self.joystick.get_button(s.get_value(Settings.AUTOPILOT))
-            if recording_button_act != recording_button_prev and recording_button_act == 1:
-                recording = not recording
-
-                if recording:  # started recording
-                    sequence_id = d.add_sequence()
-                else:  # stopped recording
-                    self.fill_sequence_list()
-
-            recording_button_prev = recording_button_act
-
-            indicator_left_act = self.joystick.get_button(s.get_value(Settings.LEFT_INDICATOR))
-            if indicator_left_act != indicator_left_prev and indicator_left_act == 1:
-                indicator_left = not indicator_left
-
-                # Switch indicator
-                if indicator_left and indicator_right:
-                    indicator_right = False
-            indicator_left_prev = indicator_left_act
-
-            indicator_right_act = self.joystick.get_button(s.get_value(Settings.RIGHT_INDICATOR))
-            if indicator_right_act != indicator_right_prev and indicator_right_act == 1:
-                indicator_right = not indicator_right
-
-                # Switch indicator
-                if indicator_right and indicator_left:
-                    indicator_left = False
-            indicator_right_prev = indicator_right_act
-
-            if indicator_left:
-                maneuver = 1
-            elif indicator_right:
-                maneuver = 2
-            else:
-                maneuver = 0
-
-            if recording:
-                self.statusbar.showMessage("Recording: active | Indicator: %s" % functions.get_indicator(maneuver))
-            else:
-                self.statusbar.showMessage("Recording: inactive | Indicator: %s" % functions.get_indicator(maneuver))
-
             # Capture the whole game
             frame_raw = ImageGrab.grab(bbox=functions.get_screen_bbox())
             frame = np.uint8(frame_raw)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             main = frame[s.get_value(Settings.IMAGE_FRONT_BORDER_TOP):s.get_value(Settings.IMAGE_FRONT_BORDER_BOTTOM),
-                         s.get_value(Settings.IMAGE_FRONT_BORDER_LEFT): s.get_value(Settings.IMAGE_FRONT_BORDER_RIGHT)]
+                   s.get_value(Settings.IMAGE_FRONT_BORDER_LEFT): s.get_value(Settings.IMAGE_FRONT_BORDER_RIGHT)]
             # gray = cv2.cvtColor(main, cv2.COLOR_BGR2GRAY)
             # blur_gray = cv2.GaussianBlur(gray, (3, 3), 0)
             # edges = cv2.Canny(blur_gray, 50, 150)
@@ -111,15 +75,28 @@ class RecordingThread(threading.Thread):
             # cv2.imshow('resized', resized)
             functions.set_image(main.copy(), self.image_front)
 
-            axis = self.joystick.get_axis(s.get_value(Settings.STEERING_AXIS)) * 180  # -180 to 180 "degrees"
-            throttle = self.joystick.get_axis(s.get_value(Settings.THROTTLE_AXIS)) * 100  # -100=full throttle, 100=full brake
-
-            speed = speed_detection.get_speed(frame)
-
+            axis, throttle, speed = get_steering_throttle_speed()
+            if axis == 0:
+                maneuver = 0
+            elif axis > 0:
+                maneuver = 1
+            else:
+                maneuver = 2
+            if self.recording:
+                self.statusbar.showMessage("Recording: active | Indicator: %s" % functions.get_indicator(maneuver))
+            else:
+                self.statusbar.showMessage("Recording: inactive | Indicator: %s" % functions.get_indicator(maneuver))
             # Save frame every 150ms
-            if recording and (functions.current_milli_time() - last_record) >= 150:
-                last_record = functions.current_milli_time()
+            if self.recording:
                 cv2.imwrite("captured/%d.png" % img_id, resized)
-                d.add_image("%d.png" % img_id, axis, speed, throttle, maneuver, sequence_id)
+                d.add_image("%d.png" % img_id, axis, speed, throttle, maneuver, self.sequence_id)
                 img_id += 1
+                # at least wait 150ms
+                wait_milli_time = functions.current_milli_time() - last_record - 150
+                if wait_milli_time < 0:
+                    time.sleep(-wait_milli_time / 1000)
+                last_record = functions.current_milli_time()
+            else:
+                time.sleep(0.15)
+        keyboard.clear_hotkey('shift+w')
         d.append()

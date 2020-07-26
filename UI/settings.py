@@ -3,9 +3,7 @@ from PyQt5 import QtGui
 from PIL import ImageGrab
 import numpy as np
 import cv2
-import pygame
 from UI.ui_settings import Ui_MainWindow
-from UI.thread_joydetection import DetectorThread
 from database import Settings
 import functions
 import sys
@@ -13,8 +11,6 @@ import sys
 
 class SettingsUI(object):
     def __init__(self):
-        pygame.init()
-        pygame.joystick.init()
 
         self.window = QMainWindow()
         self.ui = Ui_MainWindow()
@@ -107,15 +103,12 @@ class SettingsUI(object):
         self.fill_screen_cap()
 
     def fill_device_list(self):
-        if pygame.joystick.get_init():
-            pygame.joystick.quit()
-        pygame.joystick.init()
         self.ui.cb_devices.clear()
 
-        joystick_count = pygame.joystick.get_count()
+        joystick_count = 0
         if joystick_count > 0:
             for i in range(joystick_count):
-                self.ui.cb_devices.addItem(pygame.joystick.Joystick(i).get_name())
+                self.ui.cb_devices.addItem('None')
             device = Settings().get_value(Settings.CONTROLLER)
             if device is not None and int(device) < joystick_count:
                 self.ui.cb_devices.setCurrentIndex(int(device))
@@ -189,8 +182,4 @@ class SettingsUI(object):
         self.fill_screen_cap()
 
     def start_detection_thread(self, field):
-        if self.detection_thread is not None and self.detection_thread.is_alive():
-            self.detection_thread.stop()
-
-        self.detection_thread = DetectorThread(self.ui.cb_devices.currentIndex(), field)
-        self.detection_thread.start()
+        pass

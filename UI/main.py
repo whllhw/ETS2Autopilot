@@ -46,7 +46,8 @@ class MainUI(object):
         self.fill_sequence_list()
 
         # Try to start controller thread
-        if Settings().get_value(Settings.CONTROLLER) is not None and Settings().get_value(Settings.VJOY_DEVICE) is not None:
+        if Settings().get_value(Settings.CONTROLLER) is not None and Settings().get_value(
+                Settings.VJOY_DEVICE) is not None:
             self.thread_controller = ControllerThread()
             self.thread_controller.start()
 
@@ -111,7 +112,7 @@ class MainUI(object):
             if sequence_data:
                 code = Data().get_country_code(sequence_data[1])
                 self.ui.e_country.setText(code)
-                self.ui.cb_roadtype.setCurrentIndex(sequence_data[2]+1)
+                self.ui.cb_roadtype.setCurrentIndex(sequence_data[2] + 1)
 
     def append_sequence_changes(self):
         """
@@ -120,7 +121,7 @@ class MainUI(object):
         """
         sid = self._get_selected_sequence()
         code = self.ui.e_country.text()
-        road_type = self.ui.cb_roadtype.currentIndex()-1
+        road_type = self.ui.cb_roadtype.currentIndex() - 1
         Data().update_sequence(sid, code, road_type)
 
     def delete_selected_sequence(self):
@@ -160,7 +161,8 @@ class MainUI(object):
 
         # Start mode specific thread
         if rb_autopilot:
-            self.thread_autopilot = AutopilotThread(self.ui.statusbar, self.thread_controller, self.ui.steering_wheel, self.ui.image_front)
+            self.thread_autopilot = AutopilotThread(self.ui.statusbar, self.thread_controller, self.ui.steering_wheel,
+                                                    self.ui.image_front)
             self.thread_autopilot.start()
         elif rb_recording:
             self.thread_recording = RecordingThread(self.ui.statusbar, self.ui.image_front, self.fill_sequence_list)
@@ -200,7 +202,7 @@ class MainUI(object):
 
         # Show recorded corrections
         self.fill_sequence_list()
-            
+
         self.ui.mode_autopilot.setEnabled(True)
         self.ui.mode_training.setEnabled(True)
         self.ui.mode_recording.setEnabled(True)

@@ -25,7 +25,7 @@ def set_image(cv_image, ui_element):
 
 def get_indicator(value):
     if value == 0:
-        return "None"
+        return "Mid"
     elif value == 1:
         return "Left"
     elif value == 2:
